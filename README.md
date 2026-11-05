@@ -21,15 +21,27 @@ python -m collector.normalize         # refaz as tabelas, sem requisições
 python -m pytest -q tests
 ```
 
+## Site
+
+Vite + React + TypeScript em `site/`, publicado no GitHub Pages. Os dados vêm de `site/public/data/`, gerados por `scripts/build_site_data.py` a partir de `data/` (não ficam no Git).
+
+```bash
+python scripts/build_site_data.py
+cd site && npm install && npm run dev   # http://localhost:5173
+npm test                                # cálculos: média, por 90, %, taxa de linha
+```
+
 ## Automação (GitHub Actions)
 
 - `Coleta diária` (`.github/workflows/daily.yml`): todo dia às 09:00 UTC (06:00 em Brasília) e manual. Salva os dados no repositório.
 - `Carga inicial` (`.github/workflows/backfill.yml`): manual.
+- `Publicar site` (`.github/workflows/pages.yml`): a cada mudança na `main` e depois de cada coleta. Precisa de Settings → Pages → Source: **GitHub Actions**.
+- Travas em `collector/config.py`: `COLLECTION_PAUSED` (nenhuma requisição) e `BACKFILL_ALLOWED` (carga inicial por id).
 - Precisa do segredo `API_SPORTS_KEY` em Settings → Secrets and variables → Actions.
 - Agendamentos só rodam a partir da branch `main`.
 
 ## Regras dos dados
 
 - Estatística que a API não mandou = "sem dado" (null), nunca 0.
-- Chute vazio de jogador que entrou em campo conta como 0. Quem não entrou = "não jogou", fora das médias.
+- Chute e passe-chave vazios de jogador que entrou em campo contam como 0. Quem não entrou = "não jogou", fora das médias.
 - 2º tempo = bloco do 2º tempo da API; se faltar, jogo − 1º tempo.

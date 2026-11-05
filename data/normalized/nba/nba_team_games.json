@@ -1,0 +1,6 @@
+[
+{"game_id":17052,"season":2026,"date":"2026-11-05T00:30:00.000Z","team_id":6,"opponent_id":24,"home":false,"pts":105,"pts_against":135,"quarters":[21,31,27,26],"quarters_against":[43,41,29,22],"tpm":10,"tpa":43,"reb":33,"ast":24,"team_stats_source":"soma do box score dos jogadores"},
+{"game_id":17052,"season":2026,"date":"2026-11-05T00:30:00.000Z","team_id":24,"opponent_id":6,"home":true,"pts":135,"pts_against":105,"quarters":[43,41,29,22],"quarters_against":[21,31,27,26],"tpm":17,"tpa":40,"reb":57,"ast":27,"team_stats_source":"soma do box score dos jogadores"},
+{"game_id":17061,"season":2026,"date":"2026-11-05T03:30:00.000Z","team_id":16,"opponent_id":20,"home":true,"pts":116,"pts_against":117,"quarters":[24,43,20,20,9],"quarters_against":[33,19,26,29,10],"tpm":16,"tpa":43,"reb":47,"ast":30,"team_stats_source":"estatística do jogo"},
+{"game_id":17061,"season":2026,"date":"2026-11-05T03:30:00.000Z","team_id":20,"opponent_id":16,"home":false,"pts":117,"pts_against":116,"quarters":[33,19,26,29,10],"quarters_against":[24,43,20,20,9],"tpm":10,"tpa":40,"reb":50,"ast":35,"team_stats_source":"estatística do jogo"}
+]

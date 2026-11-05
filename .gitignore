@@ -5,3 +5,4 @@ __pycache__/
 node_modules/
 site/dist/
 data/raw/_check/
+site/public/data/

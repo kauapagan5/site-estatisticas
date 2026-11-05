@@ -38,7 +38,7 @@ TEAM_STATS = {
     "Offsides": "offsides",
     "Ball Possession": "possession",
 }
-FULL_ONLY = {"fouls", "offsides", "possession"}
+FULL_ONLY = ("fouls", "offsides", "possession")  # tupla: ordem fixa nos arquivos
 PERIODS = ("FT", "1T", "2T")
 
 
@@ -287,9 +287,114 @@ def build_football() -> dict:
             "player_match_stats": len(player_stats), "teams": len(teams), "players": len(players)}
 
 
+# ===================================================================== NBA
+
+NBA_RAW = config.RAW / "nba"
+NBA_OUT = config.NORMALIZED / "nba"
+NBA_SOURCE = "API-NBA (api-sports.io)"
+NBA_COUNTS = {"pts": "points", "reb": "totReb", "ast": "assists", "stl": "steals", "blk": "blocks",
+              "tov": "turnovers", "fgm": "fgm", "fga": "fga", "tpm": "tpm", "tpa": "tpa", "ftm": "ftm", "fta": "fta"}
+
+
+def nba_minutes(value) -> float | None:
+    """'34:12' -> 34.2; '37' -> 37.0; vazio -> None."""
+    if value is None or value == "" or value == "-":
+        return None
+    text = str(value).strip()
+    try:
+        if ":" in text:
+            mins, secs = text.split(":", 1)
+            return round(int(mins) + int(secs) / 60, 2)
+        return float(text)
+    except ValueError:
+        return None
+
+
+def build_nba() -> dict:
+    games: dict[int, dict] = {}
+    for path in sorted((NBA_RAW / "dates").glob("*.json")):
+        data = read_json(path) or {}
+        for g in data.get("response") or []:
+            games[g["id"]] = {**g, "_fetched_at": data.get("_fetched_at")}
+
+    game_rows, player_rows, team_rows = [], [], []
+    teams: dict[int, dict] = {}
+    players: dict[int, dict] = {}
+    for gid, g in sorted(games.items()):
+        box = read_json(NBA_RAW / "players_stats" / f"{gid}.json")
+        if g["status"]["long"] != "Finished" or not box:
+            continue
+        home, vis = g["teams"]["home"], g["teams"]["visitors"]
+        sh, sv = g["scores"]["home"], g["scores"]["visitors"]
+        q = lambda ls: [to_number(x) for x in (ls or [])]  # noqa: E731
+        game_rows.append({
+            "id": gid, "season": g["season"], "date": g["date"]["start"],
+            "home_id": home["id"], "home": home["name"], "away_id": vis["id"], "away": vis["name"],
+            "pts_home": sh.get("points"), "pts_away": sv.get("points"),
+            "quarters_home": q(sh.get("linescore")), "quarters_away": q(sv.get("linescore")),
+            "source": NBA_SOURCE, "fetched_at": g.get("_fetched_at"),
+        })
+        for t in (home, vis):
+            teams[t["id"]] = {"id": t["id"], "name": t["name"], "search": search_name(t["name"]),
+                              "code": t.get("code"), "logo": t.get("logo")}
+
+        # jogadores
+        sums: dict[int, dict] = {}
+        for r in box.get("response") or []:
+            tid = r["team"]["id"]
+            is_home = tid == home["id"]
+            minutes = nba_minutes(r.get("min"))
+            played = bool(minutes and minutes > 0)
+            row = {"game_id": gid, "season": g["season"], "date": g["date"]["start"],
+                   "player_id": r["player"]["id"],
+                   "name": f"{r['player'].get('firstname') or ''} {r['player'].get('lastname') or ''}".strip(),
+                   "team_id": tid, "opponent_id": vis["id"] if is_home else home["id"], "home": is_home,
+                   "played": played, "minutes": minutes if played else None, "position": r.get("pos")}
+            for field, api in NBA_COUNTS.items():
+                row[field] = to_number(r.get(api)) if played else None
+            player_rows.append(row)
+            if played:
+                acc = sums.setdefault(tid, {k: 0 for k in NBA_COUNTS})
+                for field in NBA_COUNTS:
+                    if row[field] is not None:
+                        acc[field] += row[field]
+            players[row["player_id"]] = {"id": row["player_id"], "name": row["name"],
+                                         "search": search_name(row["name"]), "team_id": tid,
+                                         "position": r.get("pos")}
+
+        # times
+        tstats = {t["team"]["id"]: (t.get("statistics") or [{}])[0]
+                  for t in ((read_json(NBA_RAW / "games_stats" / f"{gid}.json") or {}).get("response") or [])}
+        for t, opp, s_me, s_opp, is_home in ((home, vis, sh, sv, True), (vis, home, sv, sh, False)):
+            st = tstats.get(t["id"])
+            base = {k: to_number(st.get(NBA_COUNTS[k])) for k in ("tpm", "tpa", "reb", "ast")} if st \
+                else {k: sums.get(t["id"], {}).get(k) for k in ("tpm", "tpa", "reb", "ast")}
+            team_rows.append({
+                "game_id": gid, "season": g["season"], "date": g["date"]["start"],
+                "team_id": t["id"], "opponent_id": opp["id"], "home": is_home,
+                "pts": s_me.get("points"), "pts_against": s_opp.get("points"),
+                "quarters": q(s_me.get("linescore")), "quarters_against": q(s_opp.get("linescore")),
+                **base,
+                "team_stats_source": "estatística do jogo" if st else "soma do box score dos jogadores",
+            })
+
+    game_rows.sort(key=lambda r: r["date"], reverse=True)
+    player_rows.sort(key=lambda r: (r["date"], r["game_id"], r["player_id"]))
+    team_rows.sort(key=lambda r: (r["date"], r["game_id"], r["team_id"]))
+    write_table(NBA_OUT / "nba_games.json", game_rows)
+    write_table(NBA_OUT / "nba_player_games.json", player_rows)
+    write_table(NBA_OUT / "nba_team_games.json", team_rows)
+    write_table(NBA_OUT / "teams.json", sorted(teams.values(), key=lambda t: t["id"]))
+    write_table(NBA_OUT / "players.json", sorted(players.values(), key=lambda p: p["id"]))
+    return {"nba_games": len(game_rows), "nba_player_games": len(player_rows),
+            "nba_team_games": len(team_rows), "teams": len(teams), "players": len(players)}
+
+
 def main() -> None:
     counts = build_football()
     print("Futebol normalizado:", ", ".join(f"{k}={v}" for k, v in counts.items()))
+    counts = build_nba()
+    print("NBA normalizada:", ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
 if __name__ == "__main__":

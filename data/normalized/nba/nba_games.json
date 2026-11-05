@@ -1,0 +1,4 @@
+[
+{"id":17061,"season":2026,"date":"2026-11-05T03:30:00.000Z","home_id":16,"home":"LA Clippers","away_id":20,"away":"Miami Heat","pts_home":116,"pts_away":117,"quarters_home":[24,43,20,20,9],"quarters_away":[33,19,26,29,10],"source":"API-NBA (api-sports.io)","fetched_at":"2026-11-05T20:41:00+00:00"},
+{"id":17052,"season":2026,"date":"2026-11-05T00:30:00.000Z","home_id":24,"home":"New York Knicks","away_id":6,"away":"Chicago Bulls","pts_home":135,"pts_away":105,"quarters_home":[43,41,29,22],"quarters_away":[21,31,27,26],"source":"API-NBA (api-sports.io)","fetched_at":"2026-11-05T20:41:00+00:00"}
+]
