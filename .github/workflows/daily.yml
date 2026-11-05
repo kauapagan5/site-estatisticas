@@ -1,0 +1,55 @@
+# Coleta diária: jogos de ontem/hoje + carga inicial com a cota que sobrar.
+# Agendamentos do GitHub só rodam a partir da branch padrão (main).
+name: Coleta diária
+
+on:
+  schedule:
+    - cron: "0 9 * * *"   # 09:00 UTC = 06:00 em Brasília
+  workflow_dispatch:
+    inputs:
+      max_backfill:
+        description: "Máximo de requisições da carga inicial nesta execução"
+        default: "80"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coleta
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Futebol (diário + carga inicial)
+        env:
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+        run: python -m collector.football run --max "${{ github.event.inputs.max_backfill || '80' }}"
+
+      - name: Normalizar
+        run: python -m collector.normalize
+
+      - name: Salvar dados no repositório
+        if: always()
+        run: |
+          git config user.name "coletor-estatisticas[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "Nada novo para salvar."
+          else
+            git commit -m "Dados: coleta de $(date -u +%d/%m/%Y)"
+            git pull --rebase
+            git push
+          fi
