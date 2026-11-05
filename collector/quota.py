@@ -23,6 +23,16 @@ class QuotaExceeded(Exception):
     """A cota do dia (ou do lote) acabou."""
 
 
+class AccountSuspended(Exception):
+    """A API respondeu que a conta está suspensa: parar tudo, sem novas tentativas."""
+
+
+def check_suspended(errors) -> None:
+    text = json.dumps(errors, ensure_ascii=False).lower() if errors else ""
+    if "suspended" in text:
+        raise AccountSuspended(f"conta suspensa segundo a API: {json.dumps(errors, ensure_ascii=False)}")
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -68,6 +78,7 @@ class ApiClient:
         self.session = requests.Session()
         self._last_call = 0.0
         self.used_this_run = 0
+        self.suspended = False
         # budget = máximo de requisições permitidas nesta execução
         self.budget = budget
 
@@ -107,6 +118,8 @@ class ApiClient:
 
     # --- chamada --------------------------------------------------------
     def get(self, path: str, params: dict, raw_path: Path | None) -> dict:
+        if self.suspended:
+            raise AccountSuspended("conta suspensa nesta execução")
         """Faz a requisição, salva o bruto em raw_path e devolve o JSON.
 
         Lança QuotaExceeded se não houver cota; RuntimeError em erro da API.
@@ -133,9 +146,18 @@ class ApiClient:
         self._last_call = time.monotonic()
         self.used_this_run += 1
         self._record(r.headers.get("x-ratelimit-requests-remaining"))
-        r.raise_for_status()
-        data = r.json()
+        try:
+            data = r.json()
+        except ValueError:
+            r.raise_for_status()
+            raise
         errors = data.get("errors")
+        try:
+            check_suspended(errors)
+        except AccountSuspended:
+            self.suspended = True
+            raise
+        r.raise_for_status()
         if isinstance(errors, dict) and "rateLimit" in errors and not getattr(self, "_retrying", False):
             # limite por minuto: espera e tenta uma vez de novo
             time.sleep(61)

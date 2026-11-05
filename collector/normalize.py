@@ -4,8 +4,8 @@ Não faz nenhuma requisição: pode ser rodado quantas vezes quiser.
 
 Regras:
 - Estatística que não veio da API fica null ("sem dado"), nunca 0.
-- Exceção decidida pelo usuário: chutes (totais e no gol) de jogador que entrou
-  em campo (minutos > 0) vazios contam como 0.
+- Exceção decidida pelo usuário: chutes (totais e no gol) e passes-chave de
+  jogador que entrou em campo (minutos > 0) vazios contam como 0.
 - Jogador sem minutos = "não jogou": todas as estatísticas ficam null.
 - 2º tempo: usa o bloco statistics_2h; se faltar, 2º tempo = jogo − 1º tempo.
 - Cartões do time: se a estatística vier vazia mas o jogo tiver eventos,
@@ -217,8 +217,8 @@ def normalize_fixture(fx: dict, stats_half: dict | None, fetched_at: str) -> tup
                 "red": cards.get("red"),
             }
             if played:
-                # regra do usuário: chute vazio de quem jogou = 0
-                for k in ("shots_total", "shots_on"):
+                # regra do usuário: chute e passe-chave vazios de quem jogou = 0
+                for k in ("shots_total", "shots_on", "key_passes"):
                     if values[k] is None:
                         values[k] = 0
             else:

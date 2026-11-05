@@ -60,7 +60,7 @@ def test_chute_vazio_de_quem_jogou_vira_zero():
     rossi = next(p for p in players if p["player_id"] == 11756)
     assert rossi["played"] and rossi["minutes"] == 90
     assert rossi["shots_total"] == 0 and rossi["shots_on"] == 0
-    assert rossi["key_passes"] is None  # outros campos vazios continuam "sem dado"
+    assert rossi["key_passes"] == 0
 
 
 def test_quem_nao_jogou_fica_fora():

@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import config
-from .quota import ApiClient, QuotaExceeded, read_json, utc_now, write_json
+from .quota import AccountSuspended, ApiClient, QuotaExceeded, read_json, utc_now, write_json
 
 RAW = config.RAW / "football"
 DATES = RAW / "dates"
@@ -316,6 +316,14 @@ def main(argv: list[str] | None = None) -> None:
     if args.mode == "status":
         status()
         return
+    if config.COLLECTION_PAUSED:
+        log("Coleta pausada (config.COLLECTION_PAUSED): nenhuma requisição feita.")
+        return
+    if args.mode in ("backfill", "run", "seed") and not config.BACKFILL_ALLOWED:
+        if args.mode != "run":
+            log("Carga inicial bloqueada (config.BACKFILL_ALLOWED): nenhuma requisição feita.")
+            return
+        log("Carga inicial bloqueada (config.BACKFILL_ALLOWED): rodando só a coleta diária.")
     client = ApiClient("football", config.FOOTBALL_BASE, min_interval=config.FOOTBALL_MIN_INTERVAL)
     log(f"Cota do futebol hoje: {client.used_today()} usadas, {client.remaining_today()} disponíveis")
     try:
@@ -325,8 +333,11 @@ def main(argv: list[str] | None = None) -> None:
             seed(client, *args.teams)
         if args.mode in ("daily", "run"):
             daily(client)
-        if args.mode in ("backfill", "run"):
+        if args.mode in ("backfill", "run") and config.BACKFILL_ALLOWED:
             backfill(client, args.max)
+    except AccountSuspended as exc:
+        log(f"PARADO: {exc}. Nenhuma nova tentativa nesta execução.")
+        sys.exit(2)
     except QuotaExceeded as exc:
         log(f"Parando: {exc}")
     log(f"Requisições nesta execução: {client.used_this_run}. "

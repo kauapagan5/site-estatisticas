@@ -30,3 +30,10 @@ FOOTBALL_MIN_INTERVAL = 6.5  # segundos entre requisições (10/min)
 FINISHED = {"FT", "AET", "PEN"}
 # Status que nunca terão estatísticas: não pedir de novo
 TERMINAL_NO_STATS = {"CANC", "ABD", "AWD", "WO"}
+
+# --- Travas decididas pelo usuário (05/11/2026) ---------------------------
+# Conta da API-Sports suspensa; o suporte está analisando.
+# Enquanto True, nenhum comando do coletor chama a API.
+COLLECTION_PAUSED = True
+# Carga inicial por id só depois de o suporte confirmar que é permitida no plano grátis.
+BACKFILL_ALLOWED = False
